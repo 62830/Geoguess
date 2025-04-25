@@ -84,7 +84,7 @@ export default {
                     .child('playerName')
                     .numChildren();
                 // const playerNumber = numberOfPlayers + 1;
-                // set playerNumber to 1 if the player is the first player, otherwise, set to random number
+                // set playerNumber to 1 if the player is the room owner, otherwise, set to random number
                 // should be good up to a few hundred players without collision
                 const playerNumber = numberOfPlayers === 0 ? 1 : Math.floor(Math.random() * 100000000) + 2;
 
