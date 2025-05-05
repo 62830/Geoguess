@@ -56,6 +56,28 @@
         </v-card-text>
         <v-card-actions>
             <div class="flex-grow-1" />
+            <v-btn
+                v-if="playerNumber === 1"
+                id="btnAddBot"
+                dark
+                depressed
+                color="#9e9e9e"
+                :disabled="bot.length < 1"
+                @click="removeBotPlayer"
+                >
+                Delete Bot
+            </v-btn>
+            <v-btn
+                v-if="playerNumber === 1"
+                id="btnAddBot"
+                dark
+                depressed
+                color="#9e9e9e"
+                :disabled="bot.length == 2"
+                @click="addBotPlayer"
+                >
+                Add Bot
+            </v-btn>
             <v-btn dark depressed color="error" @click="cancel">
                 {{ $t('cancel') }}
             </v-btn>
