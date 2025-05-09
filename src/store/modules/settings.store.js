@@ -58,6 +58,7 @@ export default {
         // SETTINGS
         gameSettings: new GameSettings(),
         players: [],
+        bots: 0,
         name: localStorage.getItem('playerName')?.slice(0, 20) || i18n.t("CardRoomPlayerName.anonymousPlayerName"),
         invalidName: false,
     }),
@@ -115,6 +116,9 @@ export default {
                             }
                         }
                     );
+                    // //initialize the bots array
+                    // state.room.child('bots').onDisconnect().remove();
+
                 } else {
                     // Put other player's tentative name
                     state.room
@@ -288,9 +292,22 @@ export default {
                 );
             }
         },
-        setPlayerName({ commit }, playerName) {
-            localStorage.setItem('playerName', playerName.slice(0, 20));
-            commit(MutationTypes.SETTINGS_SET_PLAYER_NAME, playerName.slice(0, 20));
+        addBotPlayer({ state, commit }) {
+            if (!state.bots) {
+                state.bots = 1;
+            }
+            else{
+                state.bots += 1;
+            }
+            // eslint-disable-next-line no-console
+            console.log('Current number of bots(add):', state.bots);
+        },
+        removeBotPlayer({ state, commit }) {
+            if (state.bots > 0) {
+                state.bots -= 1;
+            }
+            // eslint-disable-next-line no-console
+            console.log('Current number of bots(del):', state.bots);
         },
         startGame({ state, dispatch, rootState }) {
             let gameParams = {};

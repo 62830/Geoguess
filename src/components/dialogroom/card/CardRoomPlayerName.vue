@@ -27,7 +27,7 @@
                     </v-col>
                 </v-row>
 
-                <h3>{{ $tc('CardRoomPlayerName.players', players.length) }}</h3>
+                <h3>{{ $tc('CardRoomPlayerName.players', players.length) }}, {{bots}} bots</h3>
                 <v-chip-group column>
                     <v-chip
                         v-for="(name, i) in players"
@@ -51,6 +51,28 @@
                         </v-avatar>
                         {{ name }}
                     </v-chip>
+                    <v-chip
+                        v-for="(bot, i) in botArray"
+                        :key="'bot' + i"
+                        color="#424242"
+                        dark
+                    >
+                        <v-avatar
+                            :color="
+                                [
+                                    '#E0b80C',
+                                    '#5c1B00',
+                                    '#e0cc00',
+                                    '#FFca69',
+                                    '#001Fb8',
+                                ][i % 5]
+                            "
+                            left
+                        >
+                            B
+                        </v-avatar>
+                        bot {{ i+1 }}
+                    </v-chip>
                 </v-chip-group>
             </v-container>
         </v-card-text>
@@ -58,13 +80,13 @@
             <div class="flex-grow-1" />
             <v-btn
                 v-if="playerNumber === 1"
-                id="btnAddBot"
+                id="btnDelBot"
                 dark
                 depressed
-                color="#9e9e9e"
-                :disabled="bot.length < 1"
+                color="error"
+                :disabled="bots === 0"
                 @click="removeBotPlayer"
-                >
+            >
                 Delete Bot
             </v-btn>
             <v-btn
@@ -72,10 +94,10 @@
                 id="btnAddBot"
                 dark
                 depressed
-                color="#9e9e9e"
-                :disabled="bot.length == 2"
+                color="#43B581"
+                :disabled="bots >= 1"
                 @click="addBotPlayer"
-                >
+            >
                 Add Bot
             </v-btn>
             <v-btn dark depressed color="error" @click="cancel">
@@ -106,6 +128,7 @@ export default {
             'playerNumber',
             'roomName',
             'players',
+            'bots',
             'name',
             'invalidName',
         ]),
@@ -117,10 +140,13 @@ export default {
         },
         canNext() {
             return !this.players.some((name) => name === '');
+        },
+        botArray() {
+            return Array.from({ length: this.bots });
         }
     },
     methods: {
-        ...mapActions('settingsStore', ['startGame', 'setPlayerName']),
+        ...mapActions('settingsStore', ['startGame', 'setPlayerName','addBotPlayer', 'removeBotPlayer']),
         copy() {
             this.$copyText(this.roomUrl, this.$refs.roomUrl);
         },
