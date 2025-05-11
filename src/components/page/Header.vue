@@ -3,18 +3,12 @@
         <v-app-bar class="header" height="100">
             <router-link to="/">
                 <img class="header__logo" src="@/assets/geoguessLogo.png" />
-                <img
-                    class="header__logo-min"
-                    src="@/../public/img/icons/android-icon-72x72.png"
-                />
+                <img class="header__logo-min" src="@/../public/img/icons/android-icon-72x72.png" />
             </router-link>
 
             <div class="flex-grow-1" />
 
-            <v-app-bar-nav-icon
-                class="header__nav-icon"
-                @click="menuMobile = !menuMobile"
-            ></v-app-bar-nav-icon>
+            <v-app-bar-nav-icon class="header__nav-icon" @click="menuMobile = !menuMobile"></v-app-bar-nav-icon>
             <nav class="header__nav" :class="{ visible: menuMobile }">
                 <v-btn id="historyBtn" text link to="/history">
                     {{ $t('Home.historyBtn') }}
@@ -38,11 +32,8 @@
                             </v-btn>
                         </template>
                         <v-list id="menuLanguage">
-                            <v-list-item
-                                v-for="(language, index) in languages"
-                                :key="index"
-                                @click="switchLanguage(language.value)"
-                            >
+                            <v-list-item v-for="(language, index) in languages" :key="index"
+                                @click="switchLanguage(language.value)">
                                 <v-list-item-title>
                                     {{ language.text }}
                                 </v-list-item-title>
@@ -53,6 +44,9 @@
                         <v-icon size="30">
                             {{ darkTheme ? 'mdi-white-balance-sunny' : 'mdi-weather-night' }} }}
                         </v-icon>
+                    </v-btn>
+                    <v-btn @click="handleAuth">
+                        {{ user ? user.displayName : "login" }}
                     </v-btn>
                 </div>
             </nav>
@@ -82,6 +76,8 @@ import About from '@/components/page/About';
 import { languages, RTL_LANGUAGES } from '../../lang';
 import { mapActions, mapState } from 'vuex';
 import HeaderAlert from './HeaderAlert.vue';
+import firebase from "firebase/app";
+import "firebase/auth";
 
 export default {
     components: {
@@ -93,7 +89,13 @@ export default {
             aboutDialog: false,
             languages,
             menuMobile: false,
+            user: null,
         };
+    },
+    created() {
+        firebase.auth().onAuthStateChanged((user) => {
+            this.user = user;
+        });
     },
     computed: {
         ...mapState({
@@ -103,7 +105,7 @@ export default {
             return !!process.env.VUE_APP_DEMO_MODE;
         },
         darkTheme() {
-          return this.$vuetify.theme.dark;
+            return this.$vuetify.theme.dark;
         }
     },
     methods: {
@@ -121,9 +123,23 @@ export default {
             localStorage.setItem('language', language);
         },
         changeTheme(dark) {
-          this.$vuetify.theme.dark = dark;
-          localStorage.setItem('darkTheme', dark);
-        }
+            this.$vuetify.theme.dark = dark;
+            localStorage.setItem('darkTheme', dark);
+        },
+        handleAuth() {
+            if (this.user) {
+                firebase.auth().signOut();
+            } else {
+                console.log("Logging in...");
+                const provider = new firebase.auth.GoogleAuthProvider();
+                firebase
+                    .auth()
+                    .signInWithPopup(provider)
+                    .catch((error) => {
+                        console.error("Authentication error:", error);
+                    });
+            }
+        },
     },
 };
 </script>
@@ -132,38 +148,47 @@ export default {
     z-index: 1;
     padding: 0 5%;
     background-color: var(--v-header-base) !important;
+
     .header__nav,
     .header__nav__btns {
         display: flex;
-        align-items: center;        
-        & > div {
+        align-items: center;
+
+        &>div {
             margin: 0 1.5rem;
         }
     }
-    .theme--light .header__nav__btns .v-btn{
+
+    .theme--light .header__nav__btns .v-btn {
         color: rgba(0, 0, 0, 0.87);
         margin: 0.25rem;
     }
-    .theme--dark .header__nav__btns .v-btn{
+
+    .theme--dark .header__nav__btns .v-btn {
         color: rgba(196, 110, 110, 0.87);
         margin: 0.25rem;
-     }
+    }
+
     .v-btn {
         a {
             text-decoration: none;
             color: initial;
         }
+
         font-size: 1.2rem;
     }
+
     .header__logo {
         height: 5rem;
         width: auto;
     }
+
     .header__logo-min {
         display: none;
     }
+
     .header__nav-icon {
-       display: none;
+        display: none;
     }
 }
 
@@ -172,13 +197,16 @@ export default {
         .header__logo {
             display: none;
         }
+
         .header__logo-min {
             display: block;
         }
+
         .header__nav {
             &:not(.visible) {
                 display: none;
             }
+
             position: absolute;
             top: 6.2rem;
             right: 0rem;
@@ -191,10 +219,12 @@ export default {
             flex-direction: row;
             flex-wrap: wrap;
             overflow-y: auto;
+
             .header__nav__btns {
                 margin: 0;
             }
         }
+
         .header__nav-icon {
             display: flex;
         }
