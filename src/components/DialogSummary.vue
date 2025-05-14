@@ -90,6 +90,9 @@
 </template>
 
 <script>
+import firebase from 'firebase/app';
+import 'firebase/database';
+
 import { GAME_MODE } from '../constants';
 export default {
     props: [
@@ -118,13 +121,7 @@ export default {
     },
     methods: {
         updateRecord() {
-            let history = localStorage.getItem('history');
-            if (history == null) {
-                history = [];
-            } else {
-                history = JSON.parse(history);
-            }
-            history.push({
+            let record = {
                 ...this.game,
                 score: this.score,
                 points: this.points,
@@ -135,8 +132,14 @@ export default {
                     : undefined,
                 nbRound: this.nbRound,
                 mapDetails: this.mapDetails
-            });
-            localStorage.setItem('history', JSON.stringify(history));
+            };
+            let user = firebase.auth().currentUser;
+            if (user === null) {
+                return;
+            }
+            let uid = user.uid;
+            let fb = firebase.database().ref('/__history__/' + uid);
+            fb.push(JSON.stringify(record));
         },
         finishGame() {
             this.$emit('finishGame');
