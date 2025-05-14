@@ -1,3 +1,5 @@
+import firebase from 'firebase/app';
+import 'firebase/database';
 import axios from '@/plugins/axios';
 import { getGeoJsonFromUrl, getLocateString, isGeoJSONValid } from '@/utils';
 import i18n from '../../lang';
@@ -240,11 +242,22 @@ export default {
             );
             commit(MutationTypes.HOME_SET_LISTS_CUSTOMMAPS, customsMap);
         },
-        loadHistory({ commit }) {
-            const history = localStorage.getItem('history')
-                ? JSON.parse(localStorage.getItem('history'))
-                : [];
-            commit(MutationTypes.HOME_SET_HISTORY, history);
+        async loadHistory({ commit }) {
+            firebase.auth().onAuthStateChanged(async (user) => {
+                if (user) {
+                    let uid = user.uid;
+                    let db = firebase.database().ref('/__history__/' + uid);
+                    let history = await db.once('value');
+                    history = history.val() || [];
+                    history = Object.values(history);
+                    history = history.map((obj) => {
+                        return JSON.parse(obj);
+                    });
+                    console.log('history', history);
+                    commit(MutationTypes.HOME_SET_HISTORY, history);
+                }
+            }
+            );
         },
     },
 };
