@@ -169,17 +169,21 @@ export default {
             localStorage.setItem('darkTheme', dark);
         },
         handleLogin() {
-            console.log("Logging in...");
             const provider = new firebase.auth.GoogleAuthProvider();
             firebase
                 .auth()
                 .signInWithPopup(provider)
                 .catch((error) => {
-                    console.error("Authentication error:", error);
+                    // console.error("Authentication error:", error);
                 });
         },
         handleLogout() {
-            firebase.auth().signOut();
+            firebase.auth().signOut().then(() => {
+                // Refresh the page after successful logout
+                window.location.reload();
+            }).catch((error) => {
+                // console.error("Logout error:", error);
+            });
         },
     },
 };
