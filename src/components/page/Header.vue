@@ -10,12 +10,6 @@
 
             <v-app-bar-nav-icon class="header__nav-icon" @click="menuMobile = !menuMobile"></v-app-bar-nav-icon>
             <nav class="header__nav" :class="{ visible: menuMobile }">
-                <v-btn id="historyBtn" text link to="/history">
-                    {{ $t('Home.historyBtn') }}
-                </v-btn>
-                <v-btn id="historyBtn" text link to="/medals">
-                    {{ $t('Home.medalsBtn') }}
-                </v-btn>
                 <div class="header__nav__btns">
                     <v-btn id="aboutBtn" icon @click="aboutDialog = true">
                         <v-icon size="30"> mdi-help-circle </v-icon>
@@ -45,8 +39,56 @@
                             {{ darkTheme ? 'mdi-white-balance-sunny' : 'mdi-weather-night' }} }}
                         </v-icon>
                     </v-btn>
-                    <v-btn @click="handleAuth">
-                        {{ user ? user.displayName : "login" }}
+                    <!-- Replace login button with dropdown menu when authenticated -->
+                    <v-menu 
+                        v-if="user"
+                        offset-y
+                        transition="slide-y-transition"
+                        :content-class="'user-dropdown-menu ' + (darkTheme ? 'theme--dark' : 'theme--light')"
+                    >
+                        <template v-slot:activator="{ on }">
+                            <v-btn
+                                class="user-btn"
+                                v-on="on"
+                                text
+                            >
+                                <v-avatar size="32" class="mr-2">
+                                    <v-img
+                                        v-if="user.photoURL"
+                                        :src="user.photoURL"
+                                        alt="Profile"
+                                    ></v-img>
+                                    <v-icon v-else>mdi-account-circle</v-icon>
+                                </v-avatar>
+                                {{ user.displayName }}
+                                <v-icon right small class="ml-2">mdi-menu-down</v-icon>
+                            </v-btn>
+                        </template>
+                        <v-list dense>
+                            <v-list-item to="/history">
+                                <v-list-item-icon>
+                                    <v-icon>mdi-history</v-icon>
+                                </v-list-item-icon>
+                                <v-list-item-title>{{ $t('Home.historyBtn') }}</v-list-item-title>
+                            </v-list-item>
+                            <v-list-item to="/medals">
+                                <v-list-item-icon>
+                                    <v-icon>mdi-medal</v-icon>
+                                </v-list-item-icon>
+                                <v-list-item-title>{{ $t('Home.medalsBtn') }}</v-list-item-title>
+                            </v-list-item>
+                            <v-divider></v-divider>
+                            <v-list-item @click="handleLogout">
+                                <v-list-item-icon>
+                                    <v-icon>mdi-logout</v-icon>
+                                </v-list-item-icon>
+                                <v-list-item-title>Logout</v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
+                    <v-btn v-else @click="handleLogin" outlined>
+                        <v-icon left>mdi-login</v-icon>
+                        Login
                     </v-btn>
                 </div>
             </nav>
@@ -126,19 +168,18 @@ export default {
             this.$vuetify.theme.dark = dark;
             localStorage.setItem('darkTheme', dark);
         },
-        handleAuth() {
-            if (this.user) {
-                firebase.auth().signOut();
-            } else {
-                console.log("Logging in...");
-                const provider = new firebase.auth.GoogleAuthProvider();
-                firebase
-                    .auth()
-                    .signInWithPopup(provider)
-                    .catch((error) => {
-                        console.error("Authentication error:", error);
-                    });
-            }
+        handleLogin() {
+            console.log("Logging in...");
+            const provider = new firebase.auth.GoogleAuthProvider();
+            firebase
+                .auth()
+                .signInWithPopup(provider)
+                .catch((error) => {
+                    console.error("Authentication error:", error);
+                });
+        },
+        handleLogout() {
+            firebase.auth().signOut();
         },
     },
 };
@@ -229,5 +270,29 @@ export default {
             display: flex;
         }
     }
+}
+</style>
+
+<style lang="scss">
+/* Global styles for dropdown menu - not scoped */
+.user-dropdown-menu.theme--light,
+.user-dropdown-menu.theme--dark {
+  background-color: var(--v-header-base) !important;
+}
+
+/* Style dropdown items to match header styling */
+.user-dropdown-menu .v-list {
+  background-color: var(--v-header-base) !important;
+  
+  .v-list-item {
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.04);
+    }
+  }
+}
+
+/* Apply the same styling to the language menu for consistency */
+#menuLanguage {
+  background-color: var(--v-header-base) !important;
 }
 </style>
