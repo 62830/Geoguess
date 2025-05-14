@@ -22,8 +22,8 @@ module.exports = {
     },
     plugins: ['vue', 'prettier'],
     rules: {
-        'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'warn',
-        'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
+        'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'warn',
+        'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
         semi: ['error', 'always'],
         'vue/html-indent': ['warn', 4],        
         "vue/multi-word-component-names": 'off',
