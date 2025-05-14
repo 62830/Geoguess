@@ -58,7 +58,6 @@ export default {
         // SETTINGS
         gameSettings: new GameSettings(),
         players: [],
-        bots: 0,
         name: localStorage.getItem('playerName')?.slice(0, 20) || i18n.t("CardRoomPlayerName.anonymousPlayerName"),
         invalidName: false,
     }),
@@ -96,7 +95,11 @@ export default {
 
                 state.room.child('playerName/player'+playerNumber).onDisconnect().remove();
 
-
+                // Listen for changes to the 'bots' value in Firebase
+                state.room.child('bots').on('value', (snapshot) => {
+                    state.bots = snapshot.val() || 0; // Update local state with Firebase value
+                });
+                
                 if (numberOfPlayers === 0) {
                     // Put the tentative player's name into the room node
                     // So that other player can't enter as the first player while the player decide the name and room size
@@ -214,6 +217,7 @@ export default {
                             .remove();
                     }
                 }
+                state.room.child('bots').off(); // Remove the 'bots' listener
             }
 
             dispatch('setMapLoaded', new Map(), { root: true });
@@ -292,22 +296,19 @@ export default {
                 );
             }
         },
-        addBotPlayer({ state, commit }) {
-            if (!state.bots) {
-                state.bots = 1;
-            }
-            else{
-                state.bots += 1;
-            }
-            // eslint-disable-next-line no-console
-            console.log('Current number of bots(add):', state.bots);
+        setPlayerName({ commit }, playerName) {
+            localStorage.setItem('playerName', playerName.slice(0, 20));
+            commit(MutationTypes.SETTINGS_SET_PLAYER_NAME, playerName.slice(0, 20));
         },
-        removeBotPlayer({ state, commit }) {
+        addBotPlayer({ state }) {
+            const newBotsCount = state.bots + 1;
+            state.room.child('bots').set(newBotsCount); // Update bots in Firebase
+        },
+        removeBotPlayer({ state }) {
             if (state.bots > 0) {
-                state.bots -= 1;
+                const newBotsCount = state.bots - 1;
+                state.room.child('bots').set(newBotsCount); // Update bots in Firebase
             }
-            // eslint-disable-next-line no-console
-            console.log('Current number of bots(del):', state.bots);
         },
         startGame({ state, dispatch, rootState }) {
             let gameParams = {};
