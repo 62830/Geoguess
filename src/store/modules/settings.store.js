@@ -7,6 +7,9 @@ import router from '../../router';
 import { getMaxDistanceBbox } from '../../utils';
 import * as MutationTypes from '../mutation-types';
 
+// for /src/bot.js
+import { setBotCount } from '../../bot';
+
 export class GameSettings {
     constructor(
         _allPanorama = false,
@@ -311,6 +314,9 @@ export default {
             }
         },
         startGame({ state, dispatch, rootState }) {
+            // setBotCount after game starts
+           setBotCount(state.bots);
+
             let gameParams = {};
             if (state.playerNumber === 1) {
                 gameParams = {
