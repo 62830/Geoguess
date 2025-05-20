@@ -487,7 +487,7 @@ export default {
                     
                     // Enable guess button when every players are put into the current round's node
                     if (
-                        snapshot.child('round' + this.round).numChildren() ===
+                        (snapshot.child('round' + this.round).numChildren() - getBotCount()) ===
                             snapshot.child('size').val() &&
                         !this.isReady
                     ) {
