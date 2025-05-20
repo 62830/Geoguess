@@ -4,7 +4,7 @@ import { GAME_MODE } from './constants';
 import 'firebase/database';
 import { getScore } from './utils/game/score';
 import { getSelectedPos, getAreaCodeNameFromLatLng } from './utils';
-const MaxBotCount = 10;
+export const MaxBotCount = 10;
 let mode = null;
 let room = null;
 

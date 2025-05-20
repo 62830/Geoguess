@@ -61,6 +61,7 @@ export default {
         // SETTINGS
         gameSettings: new GameSettings(),
         players: [],
+        bots: 0,
         name: localStorage.getItem('playerName')?.slice(0, 20) || i18n.t("CardRoomPlayerName.anonymousPlayerName"),
         invalidName: false,
     }),
@@ -192,6 +193,7 @@ export default {
             state.playerNumber = 0;
             state.roomErrorMessage = null;
             state.players = [];
+            state.bots = 0;
             state.gameSettings = new GameSettings();
         },
     },

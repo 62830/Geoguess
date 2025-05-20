@@ -95,7 +95,7 @@
                 dark
                 depressed
                 color="#43B581"
-                :disabled="bots >= 1"
+                :disabled="bots >= MaxBotCount"
                 @click="addBotPlayer"
             >
                 Add Bot
@@ -121,8 +121,12 @@
 <script>
 import { mapState, mapActions } from 'vuex';
 import CardRoomMixin from './mixins/CardRoomMixin';
+import { MaxBotCount } from '../../../bot';
 export default {
     mixins: [CardRoomMixin],
+    data() {
+        return { MaxBotCount };
+    },
     computed: {
         ...mapState('settingsStore', [
             'playerNumber',
