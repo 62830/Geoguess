@@ -18,6 +18,16 @@ let botfinalScore = new Array(MaxBotCount).fill(0); // distance
 let botGuess = new Array(MaxBotCount).fill(null); // guess
 let RoundAnswer = null;
 
+function initbot() {
+    streetViewComponentInstance = null;
+    botPoints = new Array(MaxBotCount).fill(0); // points
+    botScore = new Array(MaxBotCount).fill(0); // distance
+    botfinalPoints = new Array(MaxBotCount).fill(0); // points
+    botfinalScore = new Array(MaxBotCount).fill(0); // distance
+    botGuess = new Array(MaxBotCount).fill(null); // guess
+    RoundAnswer = null;
+}
+
 export function registerStreetViewComponent(instance) {
     streetViewComponentInstance = instance;
     if (instance) {
@@ -29,6 +39,7 @@ export function registerStreetViewComponent(instance) {
 
 export function setBotCount(Count) {
     botCount = Count;
+    initbot();
     console.log('Bot: Count set to ', botCount);
 }
 
