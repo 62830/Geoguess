@@ -81,6 +81,52 @@ function getRandomCountryCode() {
   return COUNTRIES_MEDALS_DATA[randomIndex].iso_a2;
 }
 
+
+const axios = require('axios');
+const apiKey = '';
+
+async function getStreetViewBase64(lat, lng, apiKey) {
+  const url = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&key=${apiKey}`;
+
+  const response = await axios.get(url, { responseType: 'arraybuffer' });
+  const base64Image = Buffer.from(response.data, 'binary').toString('base64');
+
+  return base64Image;
+}
+
+async function askGemini(base64Image) {
+  const apiKey2 = ""; // 你的 Gemini API 金鑰
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey2}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            {
+              text: "Where is the place in this picture? Answer in this format:\nlat: <latitude>\nlng: <longitude>\nwith lat in [-90, 90] and lng in [-180, 180]."
+            },
+            {
+              inlineData: {
+                mimeType: "image/png",
+                data: base64Image // 注意：這要是 **純 base64 字串**，不要加 data:image/png 前綴
+              }
+            }
+          ]
+        }
+      ]
+    })
+  });
+
+  const data = await response.json();
+  const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  console.log("Gemini 回覆：", reply || "(無回應)");
+  return reply || "(無回應)";
+}
 /**
  * Instructs the Maps.vue component to select a random location.
  * This typically calls the `selectRandomLocation` method in Maps.vue.
@@ -95,6 +141,13 @@ export async function botSelectRandomLocationOnMap() {
         mode = streetViewComponentInstance.mode;
         room = streetViewComponentInstance.room;
     }
+    const lat = RoundAnswer.lat();
+    const lng = RoundAnswer.lng();
+    console.log("lat: ",lat, "lng: ", lng);
+    const base64Image = await getStreetViewBase64(lat, lng, apiKey);
+    console.log("bas64長度", base64Image.length);
+    //await askGemini(base64Image);
+
     for(let i = 0; i < botCount; i++){
         // repeat for every bot
         const randomPoint = streetViewComponentInstance.streetViewService.getRandomLatLng().position;
