@@ -7,6 +7,9 @@ import router from '../../router';
 import { getMaxDistanceBbox } from '../../utils';
 import * as MutationTypes from '../mutation-types';
 
+// for /src/bot.js
+import { setBotCount } from '../../bot';
+
 export class GameSettings {
     constructor(
         _allPanorama = false,
@@ -58,6 +61,7 @@ export default {
         // SETTINGS
         gameSettings: new GameSettings(),
         players: [],
+        bots: 0,
         name: localStorage.getItem('playerName')?.slice(0, 20) || i18n.t("CardRoomPlayerName.anonymousPlayerName"),
         invalidName: false,
     }),
@@ -95,7 +99,11 @@ export default {
 
                 state.room.child('playerName/player'+playerNumber).onDisconnect().remove();
 
-
+                // Listen for changes to the 'bots' value in Firebase
+                state.room.child('bots').on('value', (snapshot) => {
+                    state.bots = snapshot.val() || 0; // Update local state with Firebase value
+                });
+                
                 if (numberOfPlayers === 0) {
                     // Put the tentative player's name into the room node
                     // So that other player can't enter as the first player while the player decide the name and room size
@@ -115,6 +123,9 @@ export default {
                             }
                         }
                     );
+                    // //initialize the bots array
+                    // state.room.child('bots').onDisconnect().remove();
+
                 } else {
                     // Put other player's tentative name
                     state.room
@@ -182,6 +193,7 @@ export default {
             state.playerNumber = 0;
             state.roomErrorMessage = null;
             state.players = [];
+            state.bots = 0;
             state.gameSettings = new GameSettings();
         },
     },
@@ -210,6 +222,7 @@ export default {
                             .remove();
                     }
                 }
+                state.room.child('bots').off(); // Remove the 'bots' listener
             }
 
             dispatch('setMapLoaded', new Map(), { root: true });
@@ -292,7 +305,20 @@ export default {
             localStorage.setItem('playerName', playerName.slice(0, 20));
             commit(MutationTypes.SETTINGS_SET_PLAYER_NAME, playerName.slice(0, 20));
         },
+        addBotPlayer({ state }) {
+            const newBotsCount = state.bots + 1;
+            state.room.child('bots').set(newBotsCount); // Update bots in Firebase
+        },
+        removeBotPlayer({ state }) {
+            if (state.bots > 0) {
+                const newBotsCount = state.bots - 1;
+                state.room.child('bots').set(newBotsCount); // Update bots in Firebase
+            }
+        },
         startGame({ state, dispatch, rootState }) {
+            // setBotCount after game starts
+           setBotCount(state.bots);
+
             let gameParams = {};
             if (state.playerNumber === 1) {
                 gameParams = {

@@ -147,6 +147,9 @@ import ConfirmExitMixin from '@/mixins/ConfirmExitMixin';
 import Leaderboard from "@/components/game/Leaderboard.vue";
 import LeaderboardContent from '../components/game/LeaderboardContent.vue';
 
+// for /src/bot.js
+import { registerStreetViewComponent, setRoundAnswer, getBotCount } from '../../src/bot';
+
 export default {
     components: {
         Leaderboard,
@@ -300,6 +303,9 @@ export default {
       }
     },
     async mounted() {
+        //for /src/bot.js
+        registerStreetViewComponent(this);
+        
         if (
             (this.areaParams && this.areaParams.data.urlArea) ||
             this.mode === GAME_MODE.COUNTRY
@@ -350,26 +356,80 @@ export default {
                 // Check if the room is already removed
                 if (snapshot.hasChild('active')) {
                     // Leaderboard
-                    if(this.scoreLeaderboard) {
-                        this.leaderboard = Object.entries(snapshot.val().playerName).map((player) => {
-                            return {
-                                scoreHeader: this.leaderboard.find((entity) => entity.id === player[0])?.scoreHeader || 0,
-                                score: snapshot.val()?.finalPoints?.[player[0]] || 0,
-                                name: player[1],
-                                id: player[0],
-                                guessed: !!snapshot.val()?.guess?.[player[0]],
-                            };
+                    // if(this.scoreLeaderboard) {
+                    //     this.leaderboard = Object.entries(snapshot.val().playerName).map((player) => {
+                    //         return {
+                    //             scoreHeader: this.leaderboard.find((entity) => entity.id === player[0])?.scoreHeader || 0,
+                    //             score: snapshot.val()?.finalPoints?.[player[0]] || 0,
+                    //             name: player[1],
+                    //             id: player[0],
+                    //             guessed: !!snapshot.val()?.guess?.[player[0]],
+                    //         };
+                    //     });
+                    // } else if(this.guessedLeaderboard) {
+                    //   this.leaderboard = Object.entries(snapshot.val().playerName).map((player) => {
+                    //     return {
+                    //       name: player[1],
+                    //       guessed: !!snapshot.val()?.guess?.[player[0]],
+                    //       id: player[0],
+                    //     };
+                    //   });
+                    // }
+
+                    const roomData = snapshot.val();
+                    let updatedLeaderboard = [];
+
+                    // Process human players
+                    if (roomData.playerName) {
+                        Object.entries(roomData.playerName).forEach(([playerId, playerName]) => {
+                            const playerScore = roomData.finalPoints?.[playerId] || 0;
+                            if (this.scoreLeaderboard) {
+                                updatedLeaderboard.push({
+                                    name: playerName,
+                                    id: playerId,
+                                    guessed: !!roomData.guess?.[playerId],
+                                    scoreHeader: playerScore, // Use finalPoints from snapshot
+                                    score: playerScore,       // Keep consistent if 'score' is used elsewhere
+                                });
+                            } else if (this.guessedLeaderboard) {
+                                updatedLeaderboard.push({
+                                    name: playerName,
+                                    id: playerId,
+                                    guessed: !!roomData.guess?.[playerId],
+                                });
+                            }
                         });
-                    } else if(this.guessedLeaderboard) {
-                      this.leaderboard = Object.entries(snapshot.val().playerName).map((player) => {
-                        return {
-                          name: player[1],
-                          guessed: !!snapshot.val()?.guess?.[player[0]],
-                          id: player[0],
-                        };
-                      });
                     }
 
+                    // Process bot players
+                    const botCount = getBotCount();
+                    for (let i = 0; i < botCount; i++) {
+                        const botFirebaseId = `bot${i + 1}`; // Matches keys in bot.js (bot1, bot2, ...)
+                        const botName = `bot${i + 1}`;      // Generated bot name
+                        const botScore = roomData.finalPoints?.[botFirebaseId] || 0;
+
+                        if (this.scoreLeaderboard) {
+                            updatedLeaderboard.push({
+                                name: botName,
+                                id: botFirebaseId,
+                                guessed: !!roomData.botguess?.[botFirebaseId],
+                                scoreHeader: botScore,
+                                score: botScore,
+                            });
+                        } else if (this.guessedLeaderboard) {
+                            updatedLeaderboard.push({
+                                name: botName,
+                                id: botFirebaseId,
+                                guessed: !!roomData.botguess?.[botFirebaseId],
+                            });
+                        }
+                    }
+
+                    // Sort leaderboard if scores are displayed
+                    if (this.scoreLeaderboard) {
+                        updatedLeaderboard.sort((a, b) => (b.scoreHeader || 0) - (a.scoreHeader || 0));
+                    }
+                    this.leaderboard = updatedLeaderboard;
 
                     // Put the player into the current round node if the player is not put yet
                     if (
@@ -427,7 +487,7 @@ export default {
                     
                     // Enable guess button when every players are put into the current round's node
                     if (
-                        snapshot.child('round' + this.round).numChildren() ===
+                        (snapshot.child('round' + this.round).numChildren() - getBotCount()) ===
                             snapshot.child('size').val() &&
                         !this.isReady
                     ) {
@@ -498,6 +558,11 @@ export default {
             this.randomFeatureProperties = roundInfo;
             this.area = area;
             this.setPosition(panorama);
+
+            // give round answer location to bot
+            if(getBotCount()){
+                setRoundAnswer(this.randomLatLng);
+            }
 
             if (this.multiplayer) {
                 // Put the streetview's location into firebase
@@ -666,9 +731,9 @@ export default {
             this.$refs.header.stopTimer();
 
             // Leaderboard
-            for (let player of Object.entries(this.leaderboard)) {
-              player[1].scoreHeader = player[1].score;
-            }
+            // for (let player of Object.entries(this.leaderboard)) {
+            //   player[1].scoreHeader = player[1].score;
+            // }
         },
         async goToNextRound(playAgain = false) {
             if (playAgain) {

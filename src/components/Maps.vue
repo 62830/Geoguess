@@ -356,6 +356,53 @@ export default {
                             );
                             i++;
                         });
+
+                        // Put bot markers and draw polylines on the map
+                        let j = 0;
+
+                        snapshot.child('botguess').forEach((botSnapshot) => {
+                            let botposGuess;
+                            if (this.mode === GAME_MODE.CLASSIC) {
+                                const botlat = botSnapshot
+                                    .child('latitude')
+                                    .val();
+                                const botlng = botSnapshot
+                                    .child('longitude')
+                                    .val();
+                                botposGuess = new google.maps.LatLng({
+                                    lat: botlat,
+                                    lng: botlng,
+                                });
+                            } else {
+                                botposGuess = botSnapshot.child('area').val();
+                            }
+
+                            const botName = 'bot' + (j + 1);
+                            const botroundValues = snapshot
+                                .child('round' + this.round + '/' + botName)
+                                .exportVal();
+                            const { points, distance } = botroundValues;
+                            this.$refs.map.drawPolyline(
+                                botposGuess,
+                                j,
+                                this.randomLatLng
+                            );
+                            
+                            this.$refs.map.putMarker(
+                                botposGuess,
+                                false,
+                                botName
+                            );
+                            this.$refs.map.setInfoWindow(
+                                botName,
+                                distance,
+                                points,
+                                false,
+                                botposGuess
+                            );
+                            j++;
+                        });
+
                         this.$refs.map.fitBounds();
                         this.game.rounds.push({
                             position: {
@@ -369,23 +416,54 @@ export default {
                         this.printMapFull = true;
                         // Remove guess node every time the round is done
                         this.room.child('guess').remove();
+                        this.room.child('botguess').remove();
 
                         if (this.round >= this.nbRound) {
                             // Show summary button
+                            // snapshot
+                            //     .child('finalPoints')
+                            //     .forEach((childSnapshot) => {
+                            //         const playerName = snapshot
+                            //             .child('playerName')
+                            //             .child(childSnapshot.key)
+                            //             .val();
+                            //         const finalScore = snapshot
+                            //             .child('finalScore')
+                            //             .child(childSnapshot.key)
+                            //             .val();
+                            //         const finalPoints = childSnapshot.val();
+                            //         this.summaryTexts.push({
+                            //             playerName: playerName,
+                            //             finalScore: finalScore,
+                            //             finalPoints: finalPoints,
+                            //         });
+                            //     });
+
                             snapshot
                                 .child('finalPoints')
                                 .forEach((childSnapshot) => {
-                                    const playerName = snapshot
+                                    const playerKey = childSnapshot.key;
+                                    let displayName = snapshot // Attempt to get human player name
                                         .child('playerName')
-                                        .child(childSnapshot.key)
+                                        .child(playerKey)
                                         .val();
+
+                                    if (!displayName && playerKey.startsWith('bot')) {
+                                        // If no human player name and key looks like a bot ID (e.g., "bot1", "bot2")
+                                        const botNum = playerKey.substring(3); // Extracts number part
+                                        displayName = `Bot ${botNum}`;
+                                    } else if (!displayName) {
+                                        // Fallback for keys in finalPoints without a playerName and not matching bot pattern
+                                        displayName = playerKey; 
+                                    }
+
                                     const finalScore = snapshot
                                         .child('finalScore')
-                                        .child(childSnapshot.key)
+                                        .child(playerKey)
                                         .val();
                                     const finalPoints = childSnapshot.val();
                                     this.summaryTexts.push({
-                                        playerName: playerName,
+                                        playerName: displayName,
                                         finalScore: finalScore,
                                         finalPoints: finalPoints,
                                     });
