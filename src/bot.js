@@ -4,6 +4,7 @@ import { GAME_MODE } from './constants';
 import 'firebase/database';
 import { getScore } from './utils/game/score';
 import { getSelectedPos, getAreaCodeNameFromLatLng } from './utils';
+import { COUNTRIES_MEDALS_DATA } from './utils/game/medals';
 export const MaxBotCount = 10;
 let mode = null;
 let room = null;
@@ -75,6 +76,11 @@ export function notifyBot(eventType, payload) {
     console.log(`Bot: Received notification from Vue component. Type: "${eventType}", Payload:`, payload);
 }
 
+function getRandomCountryCode() {
+  const randomIndex = Math.floor(Math.random() * COUNTRIES_MEDALS_DATA.length);
+  return COUNTRIES_MEDALS_DATA[randomIndex].iso_a2;
+}
+
 /**
  * Instructs the Maps.vue component to select a random location.
  * This typically calls the `selectRandomLocation` method in Maps.vue.
@@ -106,12 +112,15 @@ export async function botSelectRandomLocationOnMap() {
                 });
 
                 if (!botGuess[i]) {
+                    // random country to gurantee a guess
+                    botGuess[i] = getRandomCountryCode();
                     console.log('Bot', i, ': Could not resolve area from location, setting null.');
                 }
             } catch (err) {
                 console.error('Bot', i, ': Failed to fetch area from coordinates:', err);
                 botGuess[i] = null;
             }
+            botGuess[i] = botGuess[i].toUpperCase();
         }
         else {
             // location
