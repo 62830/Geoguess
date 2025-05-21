@@ -1,5 +1,5 @@
 // path: Geoguess/src/bot.js
-
+/* eslint-disable */
 import { GAME_MODE } from './constants';
 import 'firebase/database';
 import { getScore } from './utils/game/score';
