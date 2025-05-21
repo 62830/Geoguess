@@ -3,25 +3,13 @@
         <v-app-bar class="header" height="100">
             <router-link to="/">
                 <img class="header__logo" src="@/assets/geoguessLogo.png" />
-                <img
-                    class="header__logo-min"
-                    src="@/../public/img/icons/android-icon-72x72.png"
-                />
+                <img class="header__logo-min" src="@/../public/img/icons/android-icon-72x72.png" />
             </router-link>
 
             <div class="flex-grow-1" />
 
-            <v-app-bar-nav-icon
-                class="header__nav-icon"
-                @click="menuMobile = !menuMobile"
-            ></v-app-bar-nav-icon>
+            <v-app-bar-nav-icon class="header__nav-icon" @click="menuMobile = !menuMobile"></v-app-bar-nav-icon>
             <nav class="header__nav" :class="{ visible: menuMobile }">
-                <v-btn id="historyBtn" text link to="/history">
-                    {{ $t('Home.historyBtn') }}
-                </v-btn>
-                <v-btn id="historyBtn" text link to="/medals">
-                    {{ $t('Home.medalsBtn') }}
-                </v-btn>
                 <div class="header__nav__btns">
                     <v-btn id="aboutBtn" icon @click="aboutDialog = true">
                         <v-icon size="30"> mdi-help-circle </v-icon>
@@ -38,11 +26,8 @@
                             </v-btn>
                         </template>
                         <v-list id="menuLanguage">
-                            <v-list-item
-                                v-for="(language, index) in languages"
-                                :key="index"
-                                @click="switchLanguage(language.value)"
-                            >
+                            <v-list-item v-for="(language, index) in languages" :key="index"
+                                @click="switchLanguage(language.value)">
                                 <v-list-item-title>
                                     {{ language.text }}
                                 </v-list-item-title>
@@ -53,6 +38,57 @@
                         <v-icon size="30">
                             {{ darkTheme ? 'mdi-white-balance-sunny' : 'mdi-weather-night' }} }}
                         </v-icon>
+                    </v-btn>
+                    <!-- Replace login button with dropdown menu when authenticated -->
+                    <v-menu 
+                        v-if="user"
+                        offset-y
+                        transition="slide-y-transition"
+                        :content-class="'user-dropdown-menu ' + (darkTheme ? 'theme--dark' : 'theme--light')"
+                    >
+                        <template v-slot:activator="{ on }">
+                            <v-btn
+                                class="user-btn"
+                                v-on="on"
+                                text
+                            >
+                                <v-avatar size="32" class="mr-2">
+                                    <v-img
+                                        v-if="user.photoURL"
+                                        :src="user.photoURL"
+                                        alt="Profile"
+                                    ></v-img>
+                                    <v-icon v-else>mdi-account-circle</v-icon>
+                                </v-avatar>
+                                {{ user.displayName }}
+                                <v-icon right small class="ml-2">mdi-menu-down</v-icon>
+                            </v-btn>
+                        </template>
+                        <v-list dense>
+                            <v-list-item to="/history">
+                                <v-list-item-icon>
+                                    <v-icon>mdi-history</v-icon>
+                                </v-list-item-icon>
+                                <v-list-item-title>{{ $t('Home.historyBtn') }}</v-list-item-title>
+                            </v-list-item>
+                            <v-list-item to="/medals">
+                                <v-list-item-icon>
+                                    <v-icon>mdi-medal</v-icon>
+                                </v-list-item-icon>
+                                <v-list-item-title>{{ $t('Home.medalsBtn') }}</v-list-item-title>
+                            </v-list-item>
+                            <v-divider></v-divider>
+                            <v-list-item @click="handleLogout">
+                                <v-list-item-icon>
+                                    <v-icon>mdi-logout</v-icon>
+                                </v-list-item-icon>
+                                <v-list-item-title>Logout</v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
+                    <v-btn v-else @click="handleLogin" outlined>
+                        <v-icon left>mdi-login</v-icon>
+                        Login
                     </v-btn>
                 </div>
             </nav>
@@ -82,6 +118,8 @@ import About from '@/components/page/About';
 import { languages, RTL_LANGUAGES } from '../../lang';
 import { mapActions, mapState } from 'vuex';
 import HeaderAlert from './HeaderAlert.vue';
+import firebase from "firebase/app";
+import "firebase/auth";
 
 export default {
     components: {
@@ -93,7 +131,13 @@ export default {
             aboutDialog: false,
             languages,
             menuMobile: false,
+            user: null,
         };
+    },
+    created() {
+        firebase.auth().onAuthStateChanged((user) => {
+            this.user = user;
+        });
     },
     computed: {
         ...mapState({
@@ -103,7 +147,7 @@ export default {
             return !!process.env.VUE_APP_DEMO_MODE;
         },
         darkTheme() {
-          return this.$vuetify.theme.dark;
+            return this.$vuetify.theme.dark;
         }
     },
     methods: {
@@ -121,9 +165,26 @@ export default {
             localStorage.setItem('language', language);
         },
         changeTheme(dark) {
-          this.$vuetify.theme.dark = dark;
-          localStorage.setItem('darkTheme', dark);
-        }
+            this.$vuetify.theme.dark = dark;
+            localStorage.setItem('darkTheme', dark);
+        },
+        handleLogin() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            firebase
+                .auth()
+                .signInWithPopup(provider)
+                .catch((error) => {
+                    // console.error("Authentication error:", error);
+                });
+        },
+        handleLogout() {
+            firebase.auth().signOut().then(() => {
+                // Refresh the page after successful logout
+                window.location.reload();
+            }).catch((error) => {
+                // console.error("Logout error:", error);
+            });
+        },
     },
 };
 </script>
@@ -132,38 +193,47 @@ export default {
     z-index: 1;
     padding: 0 5%;
     background-color: var(--v-header-base) !important;
+
     .header__nav,
     .header__nav__btns {
         display: flex;
-        align-items: center;        
-        & > div {
+        align-items: center;
+
+        &>div {
             margin: 0 1.5rem;
         }
     }
-    .theme--light .header__nav__btns .v-btn{
+
+    .theme--light .header__nav__btns .v-btn {
         color: rgba(0, 0, 0, 0.87);
         margin: 0.25rem;
     }
-    .theme--dark .header__nav__btns .v-btn{
+
+    .theme--dark .header__nav__btns .v-btn {
         color: rgba(196, 110, 110, 0.87);
         margin: 0.25rem;
-     }
+    }
+
     .v-btn {
         a {
             text-decoration: none;
             color: initial;
         }
+
         font-size: 1.2rem;
     }
+
     .header__logo {
         height: 5rem;
         width: auto;
     }
+
     .header__logo-min {
         display: none;
     }
+
     .header__nav-icon {
-       display: none;
+        display: none;
     }
 }
 
@@ -172,13 +242,16 @@ export default {
         .header__logo {
             display: none;
         }
+
         .header__logo-min {
             display: block;
         }
+
         .header__nav {
             &:not(.visible) {
                 display: none;
             }
+
             position: absolute;
             top: 6.2rem;
             right: 0rem;
@@ -191,13 +264,39 @@ export default {
             flex-direction: row;
             flex-wrap: wrap;
             overflow-y: auto;
+
             .header__nav__btns {
                 margin: 0;
             }
         }
+
         .header__nav-icon {
             display: flex;
         }
     }
+}
+</style>
+
+<style lang="scss">
+/* Global styles for dropdown menu - not scoped */
+.user-dropdown-menu.theme--light,
+.user-dropdown-menu.theme--dark {
+  background-color: var(--v-header-base) !important;
+}
+
+/* Style dropdown items to match header styling */
+.user-dropdown-menu .v-list {
+  background-color: var(--v-header-base) !important;
+  
+  .v-list-item {
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.04);
+    }
+  }
+}
+
+/* Apply the same styling to the language menu for consistency */
+#menuLanguage {
+  background-color: var(--v-header-base) !important;
 }
 </style>
