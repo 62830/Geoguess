@@ -5,7 +5,8 @@ import 'firebase/database';
 import { getScore } from './utils/game/score';
 import { getSelectedPos, getAreaCodeNameFromLatLng } from './utils';
 import { COUNTRIES_MEDALS_DATA } from './utils/game/medals';
-export const MaxBotCount = 10;
+import { GoogleGenAI } from "@google/genai";
+export const MaxBotCount = 5;
 let mode = null;
 let room = null;
 
@@ -18,6 +19,7 @@ let botfinalPoints = new Array(MaxBotCount).fill(0); // points
 let botfinalScore = new Array(MaxBotCount).fill(0); // distance
 let botGuess = new Array(MaxBotCount).fill(null); // guess
 let RoundAnswer = null;
+
 
 function initbot() {
     streetViewComponentInstance = null;
@@ -51,7 +53,7 @@ export function getBotCount() {
 export async function setRoundAnswer(RoundLatLng) {
     RoundAnswer = RoundLatLng;
     console.log('Bot: RoundAnswer set to ', RoundAnswer);
-    await botSelectRandomLocationOnMap();
+    await geminiSelectLocationOnMap();
     console.log('Bot: Random Answers done');
     return;
 }
@@ -82,51 +84,20 @@ function getRandomCountryCode() {
 }
 
 
-const axios = require('axios');
-const apiKey = '';
-
-async function getStreetViewBase64(lat, lng, apiKey) {
-  const url = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&key=${apiKey}`;
-
-  const response = await axios.get(url, { responseType: 'arraybuffer' });
-  const base64Image = Buffer.from(response.data, 'binary').toString('base64');
-
-  return base64Image;
+function _arrayBufferToBase64( buffer ) {
+    var binary = '';
+    var bytes = new Uint8Array( buffer );
+    var len = bytes.byteLength;
+    for (var i = 0; i < len; i++) {
+        binary += String.fromCharCode( bytes[ i ] );
+    }
+    return window.btoa( binary );
 }
 
-async function askGemini(base64Image) {
-  const apiKey2 = ""; // 你的 Gemini API 金鑰
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey2}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: "Where is the place in this picture? Answer in this format:\nlat: <latitude>\nlng: <longitude>\nwith lat in [-90, 90] and lng in [-180, 180]."
-            },
-            {
-              inlineData: {
-                mimeType: "image/png",
-                data: base64Image // 注意：這要是 **純 base64 字串**，不要加 data:image/png 前綴
-              }
-            }
-          ]
-        }
-      ]
-    })
-  });
-
-  const data = await response.json();
-  const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  console.log("Gemini 回覆：", reply || "(無回應)");
-  return reply || "(無回應)";
+function getRandomArbitrary(min, max) {
+    return Math.random() * (max - min) + min;
 }
+
 /**
  * Instructs the Maps.vue component to select a random location.
  * This typically calls the `selectRandomLocation` method in Maps.vue.
@@ -141,16 +112,10 @@ export async function botSelectRandomLocationOnMap() {
         mode = streetViewComponentInstance.mode;
         room = streetViewComponentInstance.room;
     }
-    const lat = RoundAnswer.lat();
-    const lng = RoundAnswer.lng();
-    console.log("lat: ",lat, "lng: ", lng);
-    const base64Image = await getStreetViewBase64(lat, lng, apiKey);
-    console.log("bas64長度", base64Image.length);
-    //await askGemini(base64Image);
-
     for(let i = 0; i < botCount; i++){
         // repeat for every bot
         const randomPoint = streetViewComponentInstance.streetViewService.getRandomLatLng().position;
+        console.log("the randomPoint->",randomPoint);
         // make a guess
         if ([GAME_MODE.COUNTRY, GAME_MODE.CUSTOM_AREA].includes(mode)) {
             // area
@@ -178,6 +143,148 @@ export async function botSelectRandomLocationOnMap() {
         else {
             // location
             botGuess[i] = randomPoint;
+        }
+        
+        console.log('Bot', i, ': Triggering random location selection on map with:', botGuess[i]);
+
+        // time need adjustment
+        const timePassed = 3000000;
+
+        // calculate score
+        if (
+            [GAME_MODE.COUNTRY, GAME_MODE.CUSTOM_AREA].includes(mode)
+        ) {
+            botPoints[i] = +(streetViewComponentInstance.area === botGuess[i]);
+            botScore[i] = null;
+        } else {
+            botScore[i] = Math.floor(
+                google.maps.geometry.spherical.computeDistanceBetween(
+                    RoundAnswer,
+                    botGuess[i]
+                )
+            );
+
+            botPoints[i] = getScore(
+                botScore[i],
+                streetViewComponentInstance.difficulty,
+                timePassed,
+                streetViewComponentInstance.scoreMode
+            );
+        }
+        // Update the score
+        botfinalPoints[i] += botPoints[i];
+        botfinalScore[i] += botScore[i];
+
+        try {
+            await Promise.all([
+                room.child(`finalScore/bot${i + 1}`).set(botfinalScore[i]),
+                room.child(`finalPoints/bot${i + 1}`).set(botfinalPoints[i]),
+                room.child(`round${streetViewComponentInstance.round}/bot${i + 1}`).set({
+                    ...getSelectedPos(botGuess[i], mode),
+                    distance: botScore[i],
+                    points: botPoints[i],
+                    timePassed
+                }),
+                room.child(`botguess/bot${i + 1}`).set(getSelectedPos(botGuess[i], mode))
+            ]);
+        } catch (err) {
+            console.error(`Bot ${i}: Firebase update failed`, err);
+        }
+    }
+    return;
+}
+
+export async function geminiSelectLocationOnMap() {
+    if (!streetViewComponentInstance) {
+        console.log('Bot: Cannot determine guess. Maps.vue or StreetView.vue instance not registered.');
+        return;
+    }
+    else {
+        mode = streetViewComponentInstance.mode;
+        room = streetViewComponentInstance.room;
+    }
+    // Fetch the API key from environment variables
+    const mapApiKey = process.env.VUE_APP_API_KEY;
+    const geminiApiKey = process.env.VUE_APP_GEMINI_API_KEY;
+    const geminiPrompt = process.env.VUE_APP_GEMINI_PROMPT;
+
+    // get the base64 image
+    const lat = RoundAnswer.lat();
+    const lng = RoundAnswer.lng();
+    console.log("lat: ",lat, "lng: ", lng);
+
+    const response = await fetch(`https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&key=${mapApiKey}`);
+    const imageArrayBuffer = await response.arrayBuffer();
+    const base64Image = _arrayBufferToBase64(imageArrayBuffer);
+    
+    //genai testing 
+    console.log("prompt: ",geminiPrompt);
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+    const genaiResponse = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: [
+            {
+              inlineData: {
+                mimeType: 'image/jpeg',
+                data: base64Image,
+              },
+            },
+            { text: geminiPrompt }
+          ],
+    });
+    console.log("the response->",genaiResponse.text);
+    let res_lat = parseFloat(genaiResponse.text?.split("(")[1]?.split(",")[0] || "200");
+    let res_lng = parseFloat(genaiResponse.text?.split("(")[1]?.split(",")[1]?.split(")")[0] || "200");
+    if(res_lat > 90 || res_lat < -90){
+        console.log("the latitude is out of range, using random");
+        res_lat = getRandomArbitrary(-90, 90);
+    }
+    if(res_lng > 180 || res_lng < -180){
+        console.log("the longtitude is out of range, using random");
+        res_lat = getRandomArbitrary(-180, 180);
+    }
+    console.log("the res_lat->",res_lat);
+    console.log("the res_lng->",res_lng);
+    // note: gemini response
+
+    for(let i = 0; i < botCount; i++){
+        // repeat for every bot
+        // random within -10,10
+        let point = null
+        if (i == 0) {
+            point = new google.maps.LatLng(res_lat, res_lng);
+            console.log("using gemini for bot 1->");
+        }
+        else {
+            point = streetViewComponentInstance.streetViewService.getRandomLatLng().position;
+        }
+        // make a guess
+        if ([GAME_MODE.COUNTRY, GAME_MODE.CUSTOM_AREA].includes(mode)) {
+            // area
+            const areaPath =
+                mode === GAME_MODE.CUSTOM_AREA && streetViewComponentInstance.areaParams?.data?.pathKey
+                    ? streetViewComponentInstance.areaParams.data.pathKey
+                    : 'address.country_code';
+
+            try {
+                botGuess[i] = await getAreaCodeNameFromLatLng(point, {
+                    nominatimResultPath: areaPath,
+                });
+
+                if (!botGuess[i]) {
+                    // random country to gurantee a guess
+                    botGuess[i] = getRandomCountryCode();
+                    console.log('Bot', i, ': Could not resolve area from location, setting null.');
+                }
+            } catch (err) {
+                console.error('Bot', i, ': Failed to fetch area from coordinates:', err);
+                botGuess[i] = null;
+            }
+            botGuess[i] = botGuess[i].toUpperCase();
+        }
+        else {
+            // location
+            botGuess[i] = point;
         }
         
         console.log('Bot', i, ': Triggering random location selection on map with:', botGuess[i]);
